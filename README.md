@@ -1,5 +1,5 @@
 # sharkalaka
-Tool to commuincate with Spreadtrum SoC download mode
+Tool to communicate with Spreadtrum/Unisoc download mode
 (Still under WIP)
 
 ## Usage
