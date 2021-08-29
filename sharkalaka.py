@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
-import sprdflasher, binascii, os
+import sprdflasher, binascii, os, sys
 
 MIDST_SIZE = 528
-
-DOWNLOAD_ADDR = 0x40000000
-FDL1_FILENAME = "fdl1.bin"
 
 flasher = sprdflasher.SprdFlasher()
 
@@ -17,8 +14,8 @@ print("BootROM version:", flasher.read_version())
 flasher.send_connect()
 assert flasher.read_ack()
 
-file = FDL1_FILENAME
-addr = DOWNLOAD_ADDR
+file = sys.argv[2]
+addr = int(sys.argv[1], base=16)
 f = open(file, "rb")
 remain_size = size = os.stat(file).st_size
 
