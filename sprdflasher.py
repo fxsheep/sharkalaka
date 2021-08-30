@@ -7,6 +7,9 @@ SPRD_EP_OUT = 0x6
 SPRD_XFER_MAX_LEN = 1024
 SPRD_DEFAULT_TIMEOUT = 200
 
+CHKSUM_TYPE_CRC16 = 1
+CHKSUM_TYPE_ADD = 2
+
 BSL_CMD_CONNECT = 0x0
 BSL_CMD_START_DATA = 0x1
 BSL_CMD_MIDST_DATA = 0x2
@@ -16,8 +19,27 @@ BSL_CMD_EXEC_DATA = 0x4
 BSL_REP_ACK = 0x80
 BSL_REP_VER = 0x81
 
-def calc_crc16(data, crc=0):
-    return binascii.crc_hqx(data, crc)
+chksum_type = 0
+
+def calc_chksum(data):
+    if(chksum_type == CHKSUM_TYPE_CRC16):
+        return binascii.crc_hqx(data, 0)
+    elif(chksum_type == CHKSUM_TYPE_ADD):
+        sum = 0
+        size = i = len(data)
+        while(i > 1):
+            sum += (data[size - i] + (data[size - i + 1] << 8))
+            i -= 2
+        if(i == 1):
+            sum = sum + data[size - i]
+        sum = (sum >> 16) + (sum & 0xFFFF)
+        sum += (sum >> 16)
+        sum = (~sum) & 0xFFFF
+        sum = ((sum >> 8) | (sum << 8)) & 0xFFFF
+        return sum
+    else:
+        print("Error: Checksum type is incorrect.")
+        return
 
 def translate(data):
     transdata = bytes([0x7E])
@@ -57,7 +79,7 @@ def generate_packet(command, data=b''):
     packet += len(data).to_bytes(2, byteorder="big", signed=False)
     if(len(data)):
         packet += data
-    packet += calc_crc16(packet).to_bytes(2, byteorder="big", signed=False)
+    packet += calc_chksum(packet).to_bytes(2, byteorder="big", signed=False)
     return translate(packet)
 
 def parse_packet(packet):
@@ -71,18 +93,29 @@ def parse_packet(packet):
     if(length != len(data)):
         print("Error: Packet length incorrect.")
         return
-    crc = int.from_bytes(packet[-2:],byteorder='big',signed=False)
-    if(calc_crc16(packet[:-2]) != crc):
-        print("Warning: CRC16 error detected.")
+    chksum = int.from_bytes(packet[-2:],byteorder='big',signed=False)
+    if(calc_chksum(packet[:-2]) != chksum):
+        print("Warning: Checksum error detected.")
+        chksum_match = 0
     else:
-        crc_match = 1
-    return command, data, crc_match
+        chksum_match = 1
+    return command, data, chksum_match
 
 class SprdFlasher():
 
     def __init__(self):
         self.usbdevice = None
         self.timeout = SPRD_DEFAULT_TIMEOUT
+        self.set_chksum_type("crc16")
+
+    def set_chksum_type(self, type):
+        global chksum_type
+        if(type == "crc16"):
+            chksum_type = CHKSUM_TYPE_CRC16
+        elif(type == "add"):
+            chksum_type = CHKSUM_TYPE_ADD
+        else:
+            print("Checksum type incorrect.")
 
     def acquire_device(self):
         dev = usb.core.find(idVendor=0x1782, idProduct=0x4d00)
@@ -137,14 +170,14 @@ class SprdFlasher():
             return None, None, None
 
     def read_version(self):
-        response, data, crc_match = self.read_packet()
+        response, data, chksum_match = self.read_packet()
         if(response != BSL_REP_VER):
             print("Error: Invalid version response.")
             return
         return data.decode('utf-8','ignore')
 
     def read_ack(self):
-        response, data, crc_match = self.read_packet()
+        response, data, chksum_match = self.read_packet()
         if(response != BSL_REP_ACK or len(data)):
             print("Error: Invalid ACK received.")
             return False
