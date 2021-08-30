@@ -73,7 +73,7 @@ def parse_packet(packet):
         return
     crc = int.from_bytes(packet[-2:],byteorder='big',signed=False)
     if(calc_crc16(packet[:-2]) != crc):
-        print("Warning: CRC16 error detected!")
+        print("Warning: CRC16 error detected.")
     else:
         crc_match = 1
     return command, data, crc_match
@@ -96,35 +96,45 @@ class SprdFlasher():
     def send_data(self, data, timeout=None):
         if(timeout == None):
             timeout = self.timeout
-        self.usbdevice.write(SPRD_EP_OUT, data, timeout)
+        try:
+            self.usbdevice.write(SPRD_EP_OUT, data, timeout)
+            return True
+        except usb.core.USBTimeoutError:
+            return False
 
     def read_data(self, max_length=SPRD_XFER_MAX_LEN, timeout=None):
         if(timeout == None):
             timeout = self.timeout
-        return bytes(self.usbdevice.read(SPRD_EP_IN, max_length, timeout))
+        try:
+            return bytes(self.usbdevice.read(SPRD_EP_IN, max_length, timeout))
+        except usb.core.USBTimeoutError:
+            return None
 
     def send_ping(self):
-        self.send_data(b'\x7E')
+        return self.send_data(b'\x7E')
 
     def send_connect(self):
-        self.send_data(generate_packet(BSL_CMD_CONNECT))
+        return self.send_data(generate_packet(BSL_CMD_CONNECT))
 
     def send_start(self, addr, total_size):
         data = addr.to_bytes(4, byteorder="big", signed=False)
         data += total_size.to_bytes(4, byteorder="big", signed=False)
-        self.send_data(generate_packet(BSL_CMD_START_DATA, data))
+        return self.send_data(generate_packet(BSL_CMD_START_DATA, data))
 
     def send_midst(self, data):
-        self.send_data(generate_packet(BSL_CMD_MIDST_DATA, data))
+        return self.send_data(generate_packet(BSL_CMD_MIDST_DATA, data))
 
     def send_end(self):
-        self.send_data(generate_packet(BSL_CMD_END_DATA))
+        return self.send_data(generate_packet(BSL_CMD_END_DATA))
 
     def send_exec(self):
-        self.send_data(generate_packet(BSL_CMD_EXEC_DATA))
+        return self.send_data(generate_packet(BSL_CMD_EXEC_DATA))
     
     def read_packet(self):
-        return parse_packet(self.read_data())
+        try:
+            return parse_packet(self.read_data())
+        except:
+            return None, None, None
 
     def read_version(self):
         response, data, crc_match = self.read_packet()
