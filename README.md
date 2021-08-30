@@ -1,10 +1,9 @@
 # sharkalaka
-Tool to communicate with Spreadtrum/Unisoc download mode
-(Still under WIP)
+Tool to communicate with Spreadtrum/Unisoc download mode(Still under WIP)
 
 ## Usage
 
-`./sharkalaka.py address file`
+`./sharkalaka.py addr1 fdl1.bin addr2 fdl2.bin`
 
 ## Implemented
 - [x] Download file to S/DRAM 
